@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.budget import Budget
-from app.schemas.budget import BudgetRead
+from app.models.category import Category
+from app.schemas.budget import BudgetCreate, BudgetRead
 
 router = APIRouter(prefix="/budgets", tags=["Budgets"])
 
@@ -22,3 +23,42 @@ def list_budgets(
     if year is not None:
         query = query.filter(Budget.year == year)
     return query.all()
+
+
+@router.post("", response_model=BudgetRead, status_code=status.HTTP_201_CREATED)
+def create_budget(budget_in: BudgetCreate, db: Session = Depends(get_db)):
+    """Set or create a budget limit for a category for a given month and year."""
+    category = db.query(Category).filter(Category.id == budget_in.category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Category with ID {budget_in.category_id} not found",
+        )
+
+    # Check if budget already exists for this category and month/year
+    existing = (
+        db.query(Budget)
+        .filter(
+            Budget.category_id == budget_in.category_id,
+            Budget.month == budget_in.month,
+            Budget.year == budget_in.year,
+        )
+        .first()
+    )
+    if existing:
+        # Update existing budget limit
+        existing.monthly_limit = budget_in.monthly_limit
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    budget = Budget(
+        category_id=budget_in.category_id,
+        monthly_limit=budget_in.monthly_limit,
+        month=budget_in.month,
+        year=budget_in.year,
+    )
+    db.add(budget)
+    db.commit()
+    db.refresh(budget)
+    return budget

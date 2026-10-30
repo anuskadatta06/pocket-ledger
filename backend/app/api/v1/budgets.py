@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.budget import Budget
 from app.models.category import Category
-from app.schemas.budget import BudgetCreate, BudgetRead
+from app.schemas.budget import BudgetCreate, BudgetUpdate, BudgetRead
 
 router = APIRouter(prefix="/budgets", tags=["Budgets"])
 
@@ -59,6 +59,23 @@ def create_budget(budget_in: BudgetCreate, db: Session = Depends(get_db)):
         year=budget_in.year,
     )
     db.add(budget)
+    db.commit()
+    db.refresh(budget)
+    return budget
+
+
+@router.put("/{budget_id}", response_model=BudgetRead)
+def update_budget(
+    budget_id: int, budget_in: BudgetUpdate, db: Session = Depends(get_db)
+):
+    """Update an existing budget amount."""
+    budget = db.query(Budget).filter(Budget.id == budget_id).first()
+    if not budget:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Budget with ID {budget_id} not found",
+        )
+    budget.monthly_limit = budget_in.monthly_limit
     db.commit()
     db.refresh(budget)
     return budget

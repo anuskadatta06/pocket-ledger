@@ -73,6 +73,64 @@ def get_recent_transactions(
     )
 
 
+@router.get("/top-category", response_model=Optional[CategoryBreakdown])
+def get_top_spending_category(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+    db: Session = Depends(get_db),
+):
+    """Identify the single category with highest expense spending for the period."""
+    today = date.today()
+    target_month = month or today.month
+    target_year = year or today.year
+
+    query = (
+        db.query(
+            Category.id.label("category_id"),
+            Category.name.label("category_name"),
+            Category.color.label("category_color"),
+            Category.icon.label("category_icon"),
+            func.coalesce(func.sum(Transaction.amount), 0.0).label("total_amount"),
+            func.count(Transaction.id).label("transaction_count"),
+        )
+        .join(Transaction, Transaction.category_id == Category.id)
+        .filter(
+            Transaction.type == TransactionType.EXPENSE,
+            extract("month", Transaction.date) == target_month,
+            extract("year", Transaction.date) == target_year,
+        )
+        .group_by(Category.id)
+        .order_by(func.sum(Transaction.amount).desc())
+    )
+
+    top = query.first()
+    if not top:
+        return None
+
+    # Total expenses for that month
+    total_month_exp = (
+        db.query(func.coalesce(func.sum(Transaction.amount), 1.0))
+        .filter(
+            Transaction.type == TransactionType.EXPENSE,
+            extract("month", Transaction.date) == target_month,
+            extract("year", Transaction.date) == target_year,
+        )
+        .scalar()
+    ) or 1.0
+
+    pct = round((float(top.total_amount) / float(total_month_exp) * 100), 1)
+
+    return CategoryBreakdown(
+        category_id=top.category_id,
+        category_name=top.category_name,
+        category_color=top.category_color,
+        category_icon=top.category_icon,
+        total_amount=round(float(top.total_amount), 2),
+        percentage=pct,
+        transaction_count=top.transaction_count,
+    )
+
+
 @router.get("/category-breakdown", response_model=List[CategoryBreakdown])
 def get_category_breakdown(
     type: TransactionType = Query(TransactionType.EXPENSE, description="Transaction type to breakdown"),

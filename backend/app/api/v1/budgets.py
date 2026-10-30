@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.budget import Budget
 from app.models.category import Category
-from app.schemas.budget import BudgetCreate, BudgetUpdate, BudgetRead
+from app.schemas.budget import BudgetCreate, BudgetUpdate, BudgetRead, BudgetStatus
+from app.services.budget_service import calculate_budget_status
 
 router = APIRouter(prefix="/budgets", tags=["Budgets"])
 
@@ -23,6 +24,25 @@ def list_budgets(
     if year is not None:
         query = query.filter(Budget.year == year)
     return query.all()
+
+
+@router.get("/status", response_model=List[BudgetStatus])
+def get_budgets_status(
+    month: Optional[int] = Query(None, ge=1, le=12, description="Target month (1-12)"),
+    year: Optional[int] = Query(None, ge=2000, le=2100, description="Target year"),
+    db: Session = Depends(get_db),
+):
+    """Get calculated budget status with spending progress and limits."""
+    today = date.today()
+    target_month = month or today.month
+    target_year = year or today.year
+
+    budgets = (
+        db.query(Budget)
+        .filter(Budget.month == target_month, Budget.year == target_year)
+        .all()
+    )
+    return [calculate_budget_status(b, db) for b in budgets]
 
 
 @router.post("", response_model=BudgetRead, status_code=status.HTTP_201_CREATED)

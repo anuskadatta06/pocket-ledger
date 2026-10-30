@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import date
 import math
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, asc, desc
 from app.db.deps import get_db
 from app.models.transaction import Transaction
@@ -29,7 +29,7 @@ def list_transactions(
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
 ):
-    """List transactions with filtering, dynamic sorting, and pagination."""
+    """List transactions with filtering, dynamic sorting, pagination and eager-loaded categories."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -60,7 +60,8 @@ def list_transactions(
     query = query.order_by(order_func(sort_column), desc(Transaction.id))
 
     offset = (page - 1) * limit
-    items = query.offset(offset).limit(limit).all()
+    # Use joinedload to eliminate N+1 queries for category relationships
+    items = query.options(joinedload(Transaction.category)).offset(offset).limit(limit).all()
     pages = math.ceil(total / limit) if total > 0 else 1
 
     return PaginatedResponse(
@@ -92,8 +93,13 @@ def bulk_delete_transactions(
 
 @router.get("/{transaction_id}", response_model=TransactionRead)
 def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    """Retrieve a single transaction by its ID."""
-    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    """Retrieve a single transaction by its ID with category joined."""
+    transaction = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.category))
+        .filter(Transaction.id == transaction_id)
+        .first()
+    )
     if not transaction:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

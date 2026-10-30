@@ -42,3 +42,25 @@ export function formatDate(dateString: string): string {
     return dateString;
   }
 }
+
+export function formatMonthYear(month: number, year: number): string {
+  const date = new Date(year, month - 1, 1);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(date);
+}
+
+export function getMonthOptions(): { value: number; label: string }[] {
+  return [
+    { value: 1, label: "January" },
+    { value: 2, label: "February" },
+    { value: 3, label: "March" },
+    { value: 4, label: "April" },
+    { value: 5, label: "May" },
+    { value: 6, label: "June" },
+    { value: 7, label: "July" },
+    { value: 8, label: "August" },
+    { value: 9, label: "September" },
+    { value: 10, label: "October" },
+    { value: 11, label: "November" },
+    { value: 12, label: "December" },
+  ];
+}

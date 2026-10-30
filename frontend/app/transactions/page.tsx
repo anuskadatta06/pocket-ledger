@@ -10,12 +10,14 @@ import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { MobileTransactionCard } from "@/components/transactions/MobileTransactionCard";
 import { TransactionModal } from "@/components/transactions/TransactionModal";
 import { EditTransactionModal } from "@/components/transactions/EditTransactionModal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -48,6 +50,13 @@ export default function TransactionsPage() {
     fetchData();
   };
 
+  const handleDeleteTransaction = async () => {
+    if (!deletingId) return;
+    await api.deleteTransaction(deletingId);
+    setDeletingId(null);
+    fetchData();
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -71,7 +80,7 @@ export default function TransactionsPage() {
         <TransactionsTable
           transactions={transactions}
           onEdit={(tx) => setEditingTransaction(tx)}
-          onDelete={() => {}}
+          onDelete={(id) => setDeletingId(id)}
         />
 
         <div className="space-y-3 md:hidden">
@@ -80,7 +89,7 @@ export default function TransactionsPage() {
               key={tx.id}
               transaction={tx}
               onEdit={(tx) => setEditingTransaction(tx)}
-              onDelete={() => {}}
+              onDelete={(id) => setDeletingId(id)}
             />
           ))}
         </div>
@@ -99,6 +108,14 @@ export default function TransactionsPage() {
         onSubmit={handleUpdateTransaction}
         transaction={editingTransaction}
         categories={categories}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={handleDeleteTransaction}
+        title="Delete Transaction"
+        message="Are you sure you want to permanently delete this transaction record? This action cannot be undone."
       />
     </div>
   );

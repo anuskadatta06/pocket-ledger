@@ -5,15 +5,17 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Plus, Download } from "lucide-react";
 import { api } from "@/lib/api";
-import { Transaction, Category, TransactionCreate } from "@/types";
+import { Transaction, Category, TransactionCreate, TransactionUpdate } from "@/types";
 import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { MobileTransactionCard } from "@/components/transactions/MobileTransactionCard";
 import { TransactionModal } from "@/components/transactions/TransactionModal";
+import { EditTransactionModal } from "@/components/transactions/EditTransactionModal";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -41,6 +43,11 @@ export default function TransactionsPage() {
     fetchData();
   };
 
+  const handleUpdateTransaction = async (id: number, data: TransactionUpdate) => {
+    await api.updateTransaction(id, data);
+    fetchData();
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -63,7 +70,7 @@ export default function TransactionsPage() {
       <div id="transactions-content" className="space-y-4">
         <TransactionsTable
           transactions={transactions}
-          onEdit={() => {}}
+          onEdit={(tx) => setEditingTransaction(tx)}
           onDelete={() => {}}
         />
 
@@ -72,7 +79,7 @@ export default function TransactionsPage() {
             <MobileTransactionCard
               key={tx.id}
               transaction={tx}
-              onEdit={() => {}}
+              onEdit={(tx) => setEditingTransaction(tx)}
               onDelete={() => {}}
             />
           ))}
@@ -83,6 +90,14 @@ export default function TransactionsPage() {
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
         onSubmit={handleCreateTransaction}
+        categories={categories}
+      />
+
+      <EditTransactionModal
+        isOpen={!!editingTransaction}
+        onClose={() => setEditingTransaction(null)}
+        onSubmit={handleUpdateTransaction}
+        transaction={editingTransaction}
         categories={categories}
       />
     </div>

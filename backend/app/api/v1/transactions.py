@@ -50,3 +50,34 @@ def create_transaction(tx_in: TransactionCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(transaction)
     return transaction
+
+
+@router.put("/{transaction_id}", response_model=TransactionRead)
+def update_transaction_full(
+    transaction_id: int, tx_in: TransactionCreate, db: Session = Depends(get_db)
+):
+    """Full update of an existing transaction."""
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Transaction with ID {transaction_id} not found.",
+        )
+
+    category = db.query(Category).filter(Category.id == tx_in.category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Category with ID {tx_in.category_id} does not exist.",
+        )
+
+    transaction.title = tx_in.title.strip()
+    transaction.amount = tx_in.amount
+    transaction.type = tx_in.type
+    transaction.date = tx_in.date
+    transaction.notes = tx_in.notes.strip() if tx_in.notes else None
+    transaction.category_id = tx_in.category_id
+
+    db.commit()
+    db.refresh(transaction)
+    return transaction

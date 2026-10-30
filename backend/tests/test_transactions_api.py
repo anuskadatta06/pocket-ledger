@@ -103,3 +103,33 @@ def test_transaction_filters_and_search(client):
     assert inc_res.status_code == 200
     for tx in inc_res.json()["items"]:
         assert tx["type"] == "income"
+
+
+def test_pagination_and_bulk_delete(client):
+    """Test pagination bounds and bulk deletion endpoint."""
+    cat_res = client.post(
+        "/api/v1/categories",
+        json={"name": "BulkCat", "icon": "tag", "color": "#666666"},
+    )
+    cat_id = cat_res.json()["id"]
+
+    created_ids = []
+    for i in range(5):
+        r = client.post(
+            "/api/v1/transactions",
+            json={"title": f"Bulk Item {i}", "amount": 10.0 + i, "category_id": cat_id},
+        )
+        created_ids.append(r.json()["id"])
+
+    # Test pagination
+    page_res = client.get("/api/v1/transactions?page=1&limit=2")
+    assert page_res.status_code == 200
+    data = page_res.json()
+    assert len(data["items"]) == 2
+    assert data["limit"] == 2
+    assert data["pages"] >= 3
+
+    # Test bulk delete
+    bulk_res = client.post("/api/v1/transactions/bulk-delete", json=created_ids)
+    assert bulk_res.status_code == 200
+    assert bulk_res.json()["deleted_count"] == 5

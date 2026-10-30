@@ -15,6 +15,18 @@ def list_categories(db: Session = Depends(get_db)):
     return db.query(Category).order_by(Category.name.asc()).all()
 
 
+@router.get("/{category_id}", response_model=CategoryRead)
+def get_category(category_id: int, db: Session = Depends(get_db)):
+    """Retrieve a single category by ID."""
+    category = db.query(Category).filter(Category.id == category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Category with ID {category_id} not found",
+        )
+    return category
+
+
 @router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
 def create_category(category_in: CategoryCreate, db: Session = Depends(get_db)):
     """Create a new custom category with duplicate name validation."""

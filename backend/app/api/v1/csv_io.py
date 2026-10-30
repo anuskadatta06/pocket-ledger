@@ -17,7 +17,7 @@ def export_transactions_csv(
     end_date: Optional[date] = Query(None, description="Export transactions up to this date"),
     db: Session = Depends(get_db),
 ):
-    """Export transactions as a downloadable CSV spreadsheet."""
+    """Export transactions as a downloadable CSV spreadsheet with formatted headers."""
     query = (
         db.query(Transaction)
         .options(joinedload(Transaction.category))
@@ -32,21 +32,31 @@ def export_transactions_csv(
     transactions = query.all()
 
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
 
-    # Write CSV Header
-    writer.writerow(["ID", "Title", "Amount", "Type", "Date", "Category", "Notes"])
+    # Write Standardized CSV Header
+    writer.writerow([
+        "Transaction ID",
+        "Title",
+        "Amount",
+        "Type",
+        "Date",
+        "Category Name",
+        "Category Color",
+        "Notes",
+    ])
 
-    # Write CSV Rows
+    # Write CSV Rows with clean formatting
     for tx in transactions:
         writer.writerow([
             tx.id,
             tx.title,
             f"{tx.amount:.2f}",
             tx.type.value if hasattr(tx.type, "value") else str(tx.type),
-            tx.date.isoformat(),
+            tx.date.strftime("%Y-%m-%d"),
             tx.category.name if tx.category else "Uncategorized",
-            tx.notes or "",
+            tx.category.color if tx.category else "#6B7280",
+            (tx.notes or "").replace("\n", " ").strip(),
         ])
 
     output.seek(0)

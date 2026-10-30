@@ -2,12 +2,13 @@ from typing import List, Optional
 from datetime import date
 import calendar
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract
 from app.db.deps import get_db
 from app.models.transaction import Transaction
 from app.models.category import Category
 from app.models.enums import TransactionType
+from app.schemas.transaction import TransactionRead
 from app.schemas.analytics import FinancialSummary, CategoryBreakdown, MonthlyTrend
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
@@ -54,6 +55,21 @@ def get_financial_summary(
         net_balance=round(net, 2),
         savings_rate=savings_rate,
         transaction_count=count,
+    )
+
+
+@router.get("/recent", response_model=List[TransactionRead])
+def get_recent_transactions(
+    limit: int = Query(5, ge=1, le=20, description="Max recent items to return"),
+    db: Session = Depends(get_db),
+):
+    """Retrieve latest transactions for quick preview in dashboard widgets."""
+    return (
+        db.query(Transaction)
+        .options(joinedload(Transaction.category))
+        .order_by(Transaction.date.desc(), Transaction.id.desc())
+        .limit(limit)
+        .all()
     )
 
 
@@ -111,7 +127,6 @@ def get_monthly_trend(
     db: Session = Depends(get_db),
 ):
     """Retrieve monthly income, expense and net cash flow for charts."""
-    # Group transactions by year and month
     rows = (
         db.query(
             extract("year", Transaction.date).label("year"),
@@ -131,7 +146,6 @@ def get_monthly_trend(
         .all()
     )
 
-    # Aggregate by (year, month)
     monthly_data = {}
     for r in rows:
         key = (int(r.year), int(r.month))

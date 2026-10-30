@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.db.deps import get_db
 from app.models.transaction import Transaction
+from app.models.category import Category
 from app.models.enums import TransactionType
-from app.schemas.analytics import FinancialSummary
+from app.schemas.analytics import FinancialSummary, CategoryBreakdown
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -53,3 +54,51 @@ def get_financial_summary(
         savings_rate=savings_rate,
         transaction_count=count,
     )
+
+
+@router.get("/category-breakdown", response_model=List[CategoryBreakdown])
+def get_category_breakdown(
+    type: TransactionType = Query(TransactionType.EXPENSE, description="Transaction type to breakdown"),
+    start_date: Optional[date] = Query(None, description="Filter start date"),
+    end_date: Optional[date] = Query(None, description="Filter end date"),
+    db: Session = Depends(get_db),
+):
+    """Group transactions by category with total amount, count and percentage."""
+    query = (
+        db.query(
+            Category.id.label("category_id"),
+            Category.name.label("category_name"),
+            Category.color.label("category_color"),
+            Category.icon.label("category_icon"),
+            func.coalesce(func.sum(Transaction.amount), 0.0).label("total_amount"),
+            func.count(Transaction.id).label("transaction_count"),
+        )
+        .join(Transaction, Transaction.category_id == Category.id)
+        .filter(Transaction.type == type)
+    )
+
+    if start_date:
+        query = query.filter(Transaction.date >= start_date)
+    if end_date:
+        query = query.filter(Transaction.date <= end_date)
+
+    results = query.group_by(Category.id).order_by(func.sum(Transaction.amount).desc()).all()
+
+    grand_total = sum(r.total_amount for r in results) or 1.0
+
+    breakdown = []
+    for r in results:
+        amount = round(float(r.total_amount), 2)
+        pct = round((amount / grand_total * 100), 1)
+        breakdown.append(
+            CategoryBreakdown(
+                category_id=r.category_id,
+                category_name=r.category_name,
+                category_color=r.category_color,
+                category_icon=r.category_icon,
+                total_amount=amount,
+                percentage=pct,
+                transaction_count=r.transaction_count,
+            )
+        )
+    return breakdown

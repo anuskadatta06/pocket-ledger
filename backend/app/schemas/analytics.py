@@ -9,3 +9,14 @@ class FinancialSummary(BaseModel):
     net_balance: float
     savings_rate: float
     transaction_count: int
+
+
+class CategoryBreakdown(BaseModel):
+    """Spending breakdown for a category."""
+    category_id: int
+    category_name: str
+    category_color: str
+    category_icon: str
+    total_amount: float
+    percentage: float
+    transaction_count: int

@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
@@ -18,3 +19,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", tags=["Root"])
+def read_root():
+    """Return welcome message and API meta."""
+    return {
+        "name": settings.APP_NAME,
+        "status": "online",
+        "version": "0.1.0",
+        "documentation": "/docs"
+    }
+
+
+@app.get("/health", tags=["Health"])
+def health_check():
+    """Health check endpoint for monitoring."""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "environment": settings.APP_ENV
+    }

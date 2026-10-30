@@ -75,7 +75,7 @@ async def import_transactions_csv(
     file: UploadFile = File(..., description="CSV file with transactions"),
     db: Session = Depends(get_db),
 ):
-    """Import transactions in bulk from an uploaded CSV file."""
+    """Import transactions in bulk from an uploaded CSV file with validation."""
     if not file.filename.endswith(".csv"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -86,24 +86,39 @@ async def import_transactions_csv(
     decoded = content.decode("utf-8-sig", errors="replace")
     reader = csv.DictReader(io.StringIO(decoded))
 
+    if not reader.fieldnames:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file is empty or missing headers.",
+        )
+
     # Pre-fetch existing categories mapped by lower-case name
     categories = {c.name.lower(): c.id for c in db.query(Category).all()}
     misc_cat = db.query(Category).filter(Category.name == "Miscellaneous").first()
-    misc_id = misc_cat.id if misc_cat else list(categories.values())[0]
+    misc_id = misc_cat.id if misc_cat else (list(categories.values())[0] if categories else None)
 
     imported_count = 0
+    skipped_count = 0
     errors = []
 
     for idx, row in enumerate(reader, start=2):
         try:
-            # Handle variable column naming (Title or Title/Payee)
             title = (row.get("Title") or row.get("title") or "").strip()
             if not title:
+                skipped_count += 1
+                errors.append(f"Row {idx}: Missing title, skipping row.")
                 continue
 
-            amount_str = (row.get("Amount") or row.get("amount") or "0").replace("$", "").replace(",", "").strip()
-            amount = float(amount_str)
-            if amount <= 0:
+            raw_amount = (row.get("Amount") or row.get("amount") or "").replace("$", "").replace(",", "").strip()
+            try:
+                amount = float(raw_amount)
+                if amount <= 0:
+                    skipped_count += 1
+                    errors.append(f"Row {idx}: Amount must be positive, got '{raw_amount}'.")
+                    continue
+            except ValueError:
+                skipped_count += 1
+                errors.append(f"Row {idx}: Invalid number format for amount '{raw_amount}'.")
                 continue
 
             raw_type = (row.get("Type") or row.get("type") or "expense").strip().lower()
@@ -111,12 +126,29 @@ async def import_transactions_csv(
 
             date_str = (row.get("Date") or row.get("date") or "").strip()
             if date_str:
-                tx_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                parsed_date = None
+                for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y"):
+                    try:
+                        parsed_date = datetime.strptime(date_str, fmt).date()
+                        break
+                    except ValueError:
+                        pass
+                if not parsed_date:
+                    tx_date = date.today()
+                    errors.append(f"Row {idx}: Unrecognized date '{date_str}', defaulted to today.")
+                else:
+                    tx_date = parsed_date
             else:
                 tx_date = date.today()
 
             cat_name = (row.get("Category Name") or row.get("Category") or row.get("category") or "").strip().lower()
             cat_id = categories.get(cat_name, misc_id)
+
+            if cat_id is None:
+                skipped_count += 1
+                errors.append(f"Row {idx}: No valid category found and no default category available.")
+                continue
+
             notes = (row.get("Notes") or row.get("notes") or "").strip() or None
 
             tx = Transaction(
@@ -130,11 +162,13 @@ async def import_transactions_csv(
             db.add(tx)
             imported_count += 1
         except Exception as e:
-            errors.append(f"Row {idx}: {str(e)}")
+            skipped_count += 1
+            errors.append(f"Row {idx}: Unexpected error - {str(e)}")
 
     db.commit()
     return {
         "success": True,
         "imported_count": imported_count,
+        "skipped_count": skipped_count,
         "errors": errors,
     }

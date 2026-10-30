@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.transaction import Transaction
-from app.schemas.transaction import TransactionRead
+from app.models.category import Category
+from app.schemas.transaction import TransactionCreate, TransactionRead
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -13,3 +14,27 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 def list_transactions(db: Session = Depends(get_db)):
     """List transactions ordered by date descending."""
     return db.query(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+
+
+@router.post("", response_model=TransactionRead, status_code=status.HTTP_201_CREATED)
+def create_transaction(tx_in: TransactionCreate, db: Session = Depends(get_db)):
+    """Create a new income or expense transaction."""
+    category = db.query(Category).filter(Category.id == tx_in.category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Category with ID {tx_in.category_id} does not exist.",
+        )
+
+    transaction = Transaction(
+        title=tx_in.title.strip(),
+        amount=tx_in.amount,
+        type=tx_in.type,
+        date=tx_in.date,
+        notes=tx_in.notes.strip() if tx_in.notes else None,
+        category_id=tx_in.category_id,
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(transaction)
+    return transaction

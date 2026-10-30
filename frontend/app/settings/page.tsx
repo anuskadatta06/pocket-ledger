@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { useTheme } from "@/components/ThemeProvider";
+import { CurrencySelector } from "@/components/settings/CurrencySelector";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const [currency, setCurrency] = useState("USD");
 
   return (
     <div className="space-y-6">
@@ -37,6 +37,15 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Currency Configuration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CurrencySelector />
           </CardContent>
         </Card>
       </div>

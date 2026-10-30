@@ -11,9 +11,18 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
 @router.get("", response_model=List[TransactionRead])
-def list_transactions(db: Session = Depends(get_db)):
-    """List transactions ordered by date descending."""
-    return db.query(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+def list_transactions(
+    start_date: Optional[date] = Query(None, description="Filter from start date (inclusive)"),
+    end_date: Optional[date] = Query(None, description="Filter to end date (inclusive)"),
+    db: Session = Depends(get_db),
+):
+    """List transactions with optional date range filters."""
+    query = db.query(Transaction)
+    if start_date:
+        query = query.filter(Transaction.date >= start_date)
+    if end_date:
+        query = query.filter(Transaction.date <= end_date)
+    return query.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
 
 
 @router.get("/{transaction_id}", response_model=TransactionRead)

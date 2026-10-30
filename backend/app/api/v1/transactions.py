@@ -19,9 +19,11 @@ def list_transactions(
     category_id: Optional[int] = Query(None, description="Filter by Category ID"),
     type: Optional[TransactionType] = Query(None, description="Filter by type (income or expense)"),
     search: Optional[str] = Query(None, description="Search keyword in title or notes"),
+    min_amount: Optional[float] = Query(None, ge=0, description="Minimum amount"),
+    max_amount: Optional[float] = Query(None, ge=0, description="Maximum amount"),
     db: Session = Depends(get_db),
 ):
-    """List transactions with optional date, category, type, and keyword search."""
+    """List transactions with optional date, category, type, search, and amount range."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -31,6 +33,10 @@ def list_transactions(
         query = query.filter(Transaction.category_id == category_id)
     if type:
         query = query.filter(Transaction.type == type)
+    if min_amount is not None:
+        query = query.filter(Transaction.amount >= min_amount)
+    if max_amount is not None:
+        query = query.filter(Transaction.amount <= max_amount)
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.filter(

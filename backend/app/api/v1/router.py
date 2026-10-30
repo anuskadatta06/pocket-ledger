@@ -1,5 +1,5 @@
 from fastapi import APIRouter
+from app.api.v1.categories import router as categories_router
 
 api_router = APIRouter(prefix="/api/v1")
-
-# Sub-routers for categories, budgets, transactions, analytics will be registered here.
+api_router.include_router(categories_router)

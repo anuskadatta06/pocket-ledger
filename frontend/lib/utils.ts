@@ -5,13 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+export type SupportedCurrency = "USD" | "EUR" | "GBP" | "INR" | "CAD" | "AUD";
+
+export function formatCurrency(amount: number, currency: SupportedCurrency = "USD"): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `$${amount.toFixed(2)}`;
+  }
+}
+
+export function formatSignedCurrency(
+  amount: number,
+  type: "income" | "expense",
+  currency: SupportedCurrency = "USD"
+): string {
+  const formatted = formatCurrency(Math.abs(amount), currency);
+  return type === "income" ? `+${formatted}` : `-${formatted}`;
 }
 
 export function formatDate(dateString: string): string {

@@ -7,4 +7,5 @@ class FinancialSummary(BaseModel):
     total_income: float
     total_expense: float
     net_balance: float
+    savings_rate: float
     transaction_count: int

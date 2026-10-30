@@ -17,30 +17,39 @@ def get_financial_summary(
     end_date: Optional[date] = Query(None, description="End date for summary"),
     db: Session = Depends(get_db),
 ):
-    """Retrieve aggregate financial totals: income, expenses, and net balance."""
+    """Retrieve aggregate financial totals: income, expenses, and net balance with savings rate."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:
         query = query.filter(Transaction.date <= end_date)
 
-    income_total = (
-        query.filter(Transaction.type == TransactionType.INCOME)
-        .with_entities(func.coalesce(func.sum(Transaction.amount), 0.0))
-        .scalar()
-    ) or 0.0
+    income_total = float(
+        (
+            query.filter(Transaction.type == TransactionType.INCOME)
+            .with_entities(func.coalesce(func.sum(Transaction.amount), 0.0))
+            .scalar()
+        )
+        or 0.0
+    )
 
-    expense_total = (
-        query.filter(Transaction.type == TransactionType.EXPENSE)
-        .with_entities(func.coalesce(func.sum(Transaction.amount), 0.0))
-        .scalar()
-    ) or 0.0
+    expense_total = float(
+        (
+            query.filter(Transaction.type == TransactionType.EXPENSE)
+            .with_entities(func.coalesce(func.sum(Transaction.amount), 0.0))
+            .scalar()
+        )
+        or 0.0
+    )
 
     count = query.count()
+    net = income_total - expense_total
+    savings_rate = round((net / income_total * 100) if income_total > 0 else 0.0, 1)
 
     return FinancialSummary(
-        total_income=round(float(income_total), 2),
-        total_expense=round(float(expense_total), 2),
-        net_balance=round(float(income_total - expense_total), 2),
+        total_income=round(income_total, 2),
+        total_expense=round(expense_total, 2),
+        net_balance=round(net, 2),
+        savings_rate=savings_rate,
         transaction_count=count,
     )

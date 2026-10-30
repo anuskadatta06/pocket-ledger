@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.db.deps import get_db
 from app.models.category import Category
+from app.models.transaction import Transaction
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryRead
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
@@ -89,3 +90,32 @@ def update_category(
     db.commit()
     db.refresh(category)
     return category
+
+
+@router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_category(category_id: int, db: Session = Depends(get_db)):
+    """Delete a category with system and dependency checks."""
+    category = db.query(Category).filter(Category.id == category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Category with ID {category_id} not found",
+        )
+
+    if category.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="System categories cannot be deleted.",
+        )
+
+    # Check if category has transactions attached
+    tx_count = db.query(Transaction).filter(Transaction.category_id == category_id).count()
+    if tx_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete category with {tx_count} existing transactions. Reassign transactions first.",
+        )
+
+    db.delete(category)
+    db.commit()
+    return None

@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import date
+import math
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc
@@ -8,11 +9,12 @@ from app.models.transaction import Transaction
 from app.models.category import Category
 from app.models.enums import TransactionType
 from app.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionRead
+from app.schemas.common import PaginatedResponse
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
-@router.get("", response_model=List[TransactionRead])
+@router.get("", response_model=PaginatedResponse[TransactionRead])
 def list_transactions(
     start_date: Optional[date] = Query(None, description="Filter from start date (inclusive)"),
     end_date: Optional[date] = Query(None, description="Filter to end date (inclusive)"),
@@ -23,9 +25,11 @@ def list_transactions(
     max_amount: Optional[float] = Query(None, ge=0, description="Maximum amount"),
     sort_by: str = Query("date", regex="^(date|amount|title)$", description="Field to sort by"),
     sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
+    page: int = Query(1, ge=1, description="Page number starting at 1"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db),
 ):
-    """List transactions with filtering and dynamic sorting."""
+    """List transactions with filtering, dynamic sorting, and pagination."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -48,12 +52,24 @@ def list_transactions(
             )
         )
 
+    total = query.count()
+
     # Dynamic sorting
     sort_column = getattr(Transaction, sort_by)
     order_func = desc if sort_order.lower() == "desc" else asc
     query = query.order_by(order_func(sort_column), desc(Transaction.id))
 
-    return query.all()
+    offset = (page - 1) * limit
+    items = query.offset(offset).limit(limit).all()
+    pages = math.ceil(total / limit) if total > 0 else 1
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        limit=limit,
+        pages=pages,
+    )
 
 
 @router.get("/{transaction_id}", response_model=TransactionRead)

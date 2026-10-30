@@ -14,14 +14,17 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 def list_transactions(
     start_date: Optional[date] = Query(None, description="Filter from start date (inclusive)"),
     end_date: Optional[date] = Query(None, description="Filter to end date (inclusive)"),
+    category_id: Optional[int] = Query(None, description="Filter by Category ID"),
     db: Session = Depends(get_db),
 ):
-    """List transactions with optional date range filters."""
+    """List transactions with optional date range and category filters."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:
         query = query.filter(Transaction.date <= end_date)
+    if category_id:
+        query = query.filter(Transaction.category_id == category_id)
     return query.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
 
 

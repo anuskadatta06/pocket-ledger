@@ -1,11 +1,15 @@
 import time
 import logging
 from datetime import datetime
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+from app.db.session import engine, Base
+# Import models to ensure they are registered with Base.metadata
+import app.models  # noqa: F401
 from app.api.v1.router import api_router
 
 # Configure logging
@@ -15,12 +19,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger("pocketledger")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown lifecycle events."""
+    logger.info("Initializing database tables...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables initialized successfully.")
+    yield
+    logger.info("Application shutting down.")
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="A modern RESTful API for personal expense and budget management.",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Configure CORS for Next.js frontend communication

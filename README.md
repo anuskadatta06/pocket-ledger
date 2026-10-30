@@ -1,17 +1,17 @@
 # 💰 PocketLedger
 
-> A clean, responsive personal expense and budget tracker built with a **FastAPI (Python)** backend and a **Next.js (React/TypeScript)** frontend.
+> A modern, full-stack personal finance and budget tracker with a **FastAPI (Python)** backend and a **Next.js 14 (TypeScript & Tailwind CSS)** frontend.
 
 ---
 
-## 🌟 Features (Planned & In-Progress)
+## 🌟 Key Features
 
-- [ ] **Transactions Management**: Log, view, edit, and delete income and expense records.
-- [ ] **Category & Budget Goals**: Set monthly budgets per category with spending progress alerts.
-- [ ] **Interactive Analytics**: Monthly breakdown charts and category distributions powered by Recharts.
-- [ ] **Search & Filtering**: Filter by date range, category, or search through transaction notes.
-- [ ] **Data Export**: Export expenses to CSV for external accounting.
-- [ ] **Dark & Light Mode**: Accessible, modern UI built with Tailwind CSS.
+- **Transactions Dashboard**: Full CRUD for income and expenses with date-range, category, and keyword search filtering.
+- **Budget Limits & Progress Tracking**: Set monthly spending ceilings per category with automated warning thresholds and percentage meters.
+- **Visual Analytics**: Interactive monthly cash-flow trends, savings rate meters, and category spending distributions.
+- **CSV Data Import/Export**: One-click export and validation-checked batch spreadsheet uploads.
+- **Dark/Light Mode**: First-class theme support with automatic system preference detection.
+- **Responsive Mobile First**: Full mobile bottom navigation, drawers, and optimized table overflow.
 
 ---
 
@@ -19,30 +19,49 @@
 
 ```
 pocket-ledger/
-├── backend/          # FastAPI Python REST API (SQLite + SQLAlchemy)
-├── frontend/         # Next.js App Router (TypeScript + Tailwind CSS)
-└── README.md
+├── backend/
+│   ├── app/
+│   │   ├── api/v1/         # Endpoints for categories, budgets, transactions, analytics, CSV
+│   │   ├── db/             # SQLAlchemy engine, session factory, dependencies
+│   │   ├── models/         # ORM models (Category, Transaction, Budget)
+│   │   ├── schemas/        # Pydantic validation schemas
+│   │   └── services/       # Aggregation & business logic
+│   └── tests/              # Full pytest test suite
+├── frontend/
+│   ├── app/                # Next.js App Router (Dashboard, Transactions, Budgets, Categories, Settings)
+│   ├── components/         # Reusable atomic UI & feature widgets
+│   ├── lib/                # API client, charts, date/currency utilities
+│   └── types/              # TypeScript interface contracts
+└── docker-compose.yml      # Container orchestration
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-### Backend (FastAPI)
+### 1. Backend Setup
 ```bash
 cd backend
 python -m venv .venv
-# Windows:
+# On Windows:
 .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
-API documentation available at `http://localhost:8000/docs`.
+# On macOS/Linux:
+source .venv/bin/activate
 
-### Frontend (Next.js)
+pip install -r requirements.txt
+python seed.py   # Populates default categories and sample transactions
+python run.py    # Runs on http://localhost:8000
+```
+Interactive API docs available at `http://localhost:8000/docs`.
+
+### 2. Frontend Setup
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev      # Runs on http://localhost:3000
 ```
-Open `http://localhost:3000` in your browser.
+
+### 3. Docker One-Command Run
+```bash
+docker-compose up --build
+```

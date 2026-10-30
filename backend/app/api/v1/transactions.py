@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import date
 import math
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc
 from app.db.deps import get_db
@@ -70,6 +70,24 @@ def list_transactions(
         limit=limit,
         pages=pages,
     )
+
+
+@router.post("/bulk-delete")
+def bulk_delete_transactions(
+    ids: List[int] = Body(..., description="List of transaction IDs to delete"),
+    db: Session = Depends(get_db),
+):
+    """Delete multiple transactions at once by ID list."""
+    if not ids:
+        return {"deleted_count": 0}
+
+    deleted_count = (
+        db.query(Transaction)
+        .filter(Transaction.id.in_(ids))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"deleted_count": deleted_count}
 
 
 @router.get("/{transaction_id}", response_model=TransactionRead)

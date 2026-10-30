@@ -2,6 +2,7 @@ from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from app.db.deps import get_db
 from app.models.transaction import Transaction
 from app.models.category import Category
@@ -17,9 +18,10 @@ def list_transactions(
     end_date: Optional[date] = Query(None, description="Filter to end date (inclusive)"),
     category_id: Optional[int] = Query(None, description="Filter by Category ID"),
     type: Optional[TransactionType] = Query(None, description="Filter by type (income or expense)"),
+    search: Optional[str] = Query(None, description="Search keyword in title or notes"),
     db: Session = Depends(get_db),
 ):
-    """List transactions with optional date range, category, and type filters."""
+    """List transactions with optional date, category, type, and keyword search."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -29,6 +31,14 @@ def list_transactions(
         query = query.filter(Transaction.category_id == category_id)
     if type:
         query = query.filter(Transaction.type == type)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                Transaction.title.ilike(term),
+                Transaction.notes.ilike(term),
+            )
+        )
     return query.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
 
 

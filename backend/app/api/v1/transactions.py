@@ -16,6 +16,18 @@ def list_transactions(db: Session = Depends(get_db)):
     return db.query(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc()).all()
 
 
+@router.get("/{transaction_id}", response_model=TransactionRead)
+def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    """Retrieve a single transaction by its ID."""
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Transaction with ID {transaction_id} not found.",
+        )
+    return transaction
+
+
 @router.post("", response_model=TransactionRead, status_code=status.HTTP_201_CREATED)
 def create_transaction(tx_in: TransactionCreate, db: Session = Depends(get_db)):
     """Create a new income or expense transaction."""

@@ -30,12 +30,32 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down.")
 
 
+openapi_tags = [
+    {
+        "name": "Categories",
+        "description": "Operations to manage income and expense categories.",
+    },
+    {
+        "name": "Budgets",
+        "description": "Monthly spending budget limits and status calculations per category.",
+    },
+    {
+        "name": "Transactions",
+        "description": "CRUD operations, filtering, pagination and sorting for income and expenses.",
+    },
+    {
+        "name": "Analytics",
+        "description": "Aggregate statistics, monthly history, and CSV data export/import.",
+    },
+]
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="A modern RESTful API for personal expense and budget management.",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_tags=openapi_tags,
     lifespan=lifespan,
 )
 

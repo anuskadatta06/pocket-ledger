@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.transaction import Transaction
 from app.models.category import Category
+from app.models.enums import TransactionType
 from app.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionRead
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -15,9 +16,10 @@ def list_transactions(
     start_date: Optional[date] = Query(None, description="Filter from start date (inclusive)"),
     end_date: Optional[date] = Query(None, description="Filter to end date (inclusive)"),
     category_id: Optional[int] = Query(None, description="Filter by Category ID"),
+    type: Optional[TransactionType] = Query(None, description="Filter by type (income or expense)"),
     db: Session = Depends(get_db),
 ):
-    """List transactions with optional date range and category filters."""
+    """List transactions with optional date range, category, and type filters."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -25,6 +27,8 @@ def list_transactions(
         query = query.filter(Transaction.date <= end_date)
     if category_id:
         query = query.filter(Transaction.category_id == category_id)
+    if type:
+        query = query.filter(Transaction.type == type)
     return query.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
 
 

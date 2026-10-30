@@ -1,8 +1,17 @@
+import time
+import logging
 from datetime import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.v1.router import api_router
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("pocketledger")
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -20,6 +29,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests_middleware(request: Request, call_next):
+    """Middleware to log request method, path and execution time in ms."""
+    start_time = time.time()
+    response = await call_next(request)
+    duration_ms = round((time.time() - start_time) * 1000, 2)
+    logger.info(
+        f"{request.method} {request.url.path} - Status: {response.status_code} - Completed in {duration_ms}ms"
+    )
+    response.headers["X-Process-Time-Ms"] = str(duration_ms)
+    return response
+
 
 # Include v1 router
 app.include_router(api_router)

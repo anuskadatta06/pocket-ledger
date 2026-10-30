@@ -1,13 +1,14 @@
 from typing import List, Optional
 from datetime import date
+import calendar
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, extract
 from app.db.deps import get_db
 from app.models.transaction import Transaction
 from app.models.category import Category
 from app.models.enums import TransactionType
-from app.schemas.analytics import FinancialSummary, CategoryBreakdown
+from app.schemas.analytics import FinancialSummary, CategoryBreakdown, MonthlyTrend
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -102,3 +103,59 @@ def get_category_breakdown(
             )
         )
     return breakdown
+
+
+@router.get("/monthly-trend", response_model=List[MonthlyTrend])
+def get_monthly_trend(
+    months: int = Query(6, ge=1, le=24, description="Number of past months to retrieve"),
+    db: Session = Depends(get_db),
+):
+    """Retrieve monthly income, expense and net cash flow for charts."""
+    # Group transactions by year and month
+    rows = (
+        db.query(
+            extract("year", Transaction.date).label("year"),
+            extract("month", Transaction.date).label("month"),
+            Transaction.type.label("type"),
+            func.sum(Transaction.amount).label("total"),
+        )
+        .group_by(
+            extract("year", Transaction.date),
+            extract("month", Transaction.date),
+            Transaction.type,
+        )
+        .order_by(
+            extract("year", Transaction.date).desc(),
+            extract("month", Transaction.date).desc(),
+        )
+        .all()
+    )
+
+    # Aggregate by (year, month)
+    monthly_data = {}
+    for r in rows:
+        key = (int(r.year), int(r.month))
+        if key not in monthly_data:
+            monthly_data[key] = {"income": 0.0, "expense": 0.0}
+        if r.type == TransactionType.INCOME:
+            monthly_data[key]["income"] = float(r.total)
+        else:
+            monthly_data[key]["expense"] = float(r.total)
+
+    trend = []
+    sorted_keys = sorted(monthly_data.keys())[-months:]
+    for y, m in sorted_keys:
+        inc = round(monthly_data[(y, m)]["income"], 2)
+        exp = round(monthly_data[(y, m)]["expense"], 2)
+        month_name = f"{calendar.month_abbr[m]} {y}"
+        trend.append(
+            MonthlyTrend(
+                year=y,
+                month=m,
+                month_name=month_name,
+                income=inc,
+                expense=exp,
+                net=round(inc - exp, 2),
+            )
+        )
+    return trend

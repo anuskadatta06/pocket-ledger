@@ -20,3 +20,13 @@ class CategoryBreakdown(BaseModel):
     total_amount: float
     percentage: float
     transaction_count: int
+
+
+class MonthlyTrend(BaseModel):
+    """Monthly income vs expense historical point."""
+    year: int
+    month: int
+    month_name: str
+    income: float
+    expense: float
+    net: float

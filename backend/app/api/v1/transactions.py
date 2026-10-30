@@ -113,3 +113,17 @@ def update_transaction_partial(
     db.commit()
     db.refresh(transaction)
     return transaction
+
+
+@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    """Delete a transaction by ID."""
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Transaction with ID {transaction_id} not found.",
+        )
+    db.delete(transaction)
+    db.commit()
+    return None

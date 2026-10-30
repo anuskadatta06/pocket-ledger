@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, asc, desc
 from app.db.deps import get_db
 from app.models.transaction import Transaction
 from app.models.category import Category
@@ -21,9 +21,11 @@ def list_transactions(
     search: Optional[str] = Query(None, description="Search keyword in title or notes"),
     min_amount: Optional[float] = Query(None, ge=0, description="Minimum amount"),
     max_amount: Optional[float] = Query(None, ge=0, description="Maximum amount"),
+    sort_by: str = Query("date", regex="^(date|amount|title)$", description="Field to sort by"),
+    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order"),
     db: Session = Depends(get_db),
 ):
-    """List transactions with optional date, category, type, search, and amount range."""
+    """List transactions with filtering and dynamic sorting."""
     query = db.query(Transaction)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -45,7 +47,13 @@ def list_transactions(
                 Transaction.notes.ilike(term),
             )
         )
-    return query.order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+
+    # Dynamic sorting
+    sort_column = getattr(Transaction, sort_by)
+    order_func = desc if sort_order.lower() == "desc" else asc
+    query = query.order_by(order_func(sort_column), desc(Transaction.id))
+
+    return query.all()
 
 
 @router.get("/{transaction_id}", response_model=TransactionRead)

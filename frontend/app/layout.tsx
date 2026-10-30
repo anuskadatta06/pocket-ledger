@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Navbar } from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
+import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "PocketLedger - Personal Expense & Budget Tracker",
@@ -24,6 +25,7 @@ export default function RootLayout({
             <Sidebar />
             <main className="flex-1 p-6 md:p-8 lg:p-10">{children}</main>
           </div>
+          <Footer />
         </ThemeProvider>
       </body>
     </html>

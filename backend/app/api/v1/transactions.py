@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.transaction import Transaction
 from app.models.category import Category
-from app.schemas.transaction import TransactionCreate, TransactionRead
+from app.schemas.transaction import TransactionCreate, TransactionUpdate, TransactionRead
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -77,6 +77,38 @@ def update_transaction_full(
     transaction.date = tx_in.date
     transaction.notes = tx_in.notes.strip() if tx_in.notes else None
     transaction.category_id = tx_in.category_id
+
+    db.commit()
+    db.refresh(transaction)
+    return transaction
+
+
+@router.patch("/{transaction_id}", response_model=TransactionRead)
+def update_transaction_partial(
+    transaction_id: int, tx_in: TransactionUpdate, db: Session = Depends(get_db)
+):
+    """Partial update of an existing transaction."""
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Transaction with ID {transaction_id} not found.",
+        )
+
+    update_dict = tx_in.model_dump(exclude_unset=True)
+
+    if "category_id" in update_dict and update_dict["category_id"] is not None:
+        cat = db.query(Category).filter(Category.id == update_dict["category_id"]).first()
+        if not cat:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Category with ID {update_dict['category_id']} does not exist.",
+            )
+
+    for field, value in update_dict.items():
+        if field == "title" and value:
+            value = value.strip()
+        setattr(transaction, field, value)
 
     db.commit()
     db.refresh(transaction)
